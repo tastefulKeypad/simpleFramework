@@ -1,10 +1,10 @@
 ## Building examples
 UNIX: 
 ```
-gcc serverExample.cpp -o server -Iinclude 
+gcc serverExample.cpp -o server -Isrc
 ```
 
 Windows:
 ```
-gcc serverExample.cpp -o server -Iinclude -lws2_32
+gcc serverExample.cpp -o server -Isrc -lws2_32
 ```

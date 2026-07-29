@@ -1,8 +1,8 @@
 #pragma once
+#include "simpleError.h"
 #include <string>
 #include <cstring>
 #include <iostream>
-#include <bitset>
 #include <stdint.h>
 
 #ifdef _WIN32
@@ -93,7 +93,7 @@ int WinStartup() {
     #ifdef _WIN32
         WSADATA wsaData;
         res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    #else 
+    //#else 
         //LOG("WARN", "No action under UNIX");
     #endif
     return res;
@@ -102,13 +102,10 @@ int WinCleanup() {
     int res = 0;
     #ifdef _WIN32
         res = WSACleanup();
-    #else 
+    //#else 
         //LOG("WARN", "No action under UNIX");
     #endif
     return res;
-}
-int GetLastError() {
-    return 0;
 }
 
 // Socket functions
