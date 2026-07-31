@@ -2,22 +2,24 @@
 
 const int BUFFER_SIZE = 512;
 
+void LogError(std::string msg) {
+    std::cout << msg << '\n' << "Reason: "
+              << ssock::GetErrorMsg(ssock::GetLastError()) << '\n';
+}
+
+
 class Client {
 private:
-    int errCode;
     ssock::Socket sock;
     char buffer[BUFFER_SIZE];
 
-
 public:
-    Client() : sock(ssock::ProtocolType::TCP) {memset(buffer, 0, sizeof(buffer));}
+    Client() : sock(ssock::ProtocolType::TCP) {memset(buffer, 0, BUFFER_SIZE);}
     ~Client() {}
 
-    int GetErrorCode() {return errCode;}
-
     int Connect(ssock::Address serverAddr) {
-        errCode = sock.Connect(serverAddr);
-        if (errCode != SOCKET_ERROR) {
+        errcode_t ec = sock.Connect(serverAddr);
+        if (ec != SOCKET_ERROR) {
             ssock::Address addr;
             std::cout << "Connected to server!\n";
             sock.GetSockAddress(addr);
@@ -25,7 +27,7 @@ public:
             sock.GetPeerAddress(addr);
             std::cout << "Remote server sock address = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
         }
-        return errCode;
+        return ec;
     }
 
     void Receive() {
@@ -51,8 +53,8 @@ int main(int argc, char* argv[]) {
         Client client;
         std::cout << "Will try to connect to " << addr << ':' << port << '\n'; 
         if (client.Connect(ssock::Address(addr, port)) == SOCKET_ERROR) {
-            std::cout << "Failed to connect to remote server!\n";
-            return 1;
+            LogError("Failed to connect to remote server!");
+            return static_cast<errcode_t>(ssock::GetLastError());
         }
         #ifdef _WIN32
             client.Send("Hello from .#-WINDOWS-#. client!");

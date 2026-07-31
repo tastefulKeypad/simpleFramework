@@ -2,41 +2,46 @@
 
 const int BUFFER_SIZE = 512;
 
+void LogError(std::string msg) {
+    std::cout << msg << '\n' << "Reason: "
+              << ssock::GetErrorMsg(ssock::GetLastError()) << '\n';
+}
+
 class Server {
 private:
-    int errCode;
     ssock::Socket listenSock, clientSock;
     char buffer[BUFFER_SIZE];
 
 public:
-    Server() = delete;
-    Server(std::string addr, uint16_t port) 
+    Server() 
         : listenSock(ssock::ProtocolType::TCP), 
-          clientSock(ssock::ProtocolType::TCP) 
-    {
-        errCode = listenSock.Bind(ssock::Address(addr, port));
-        if (errCode != SOCKET_ERROR) errCode = listenSock.Listen(64);
-    }
+          clientSock(ssock::ProtocolType::TCP) {}
     ~Server() {}
 
-    int GetErrorCode() {return errCode;}
+    errcode_t BindAndListen(std::string addr, uint16_t port) {
+        errcode_t ec = listenSock.Bind(ssock::Address(addr, port));
+        if (ec != SOCKET_ERROR) ec = listenSock.Listen(64);
+        return ec;
+    }
 
-    int GetServerAddress(ssock::Address& outAddr) {return listenSock.GetSockAddress(outAddr);}
+    errcode_t GetServerAddress(ssock::Address& outAddr) {return listenSock.GetSockAddress(outAddr);}
 
     int Accept() {
+        errcode_t ec;
         ssock::Address addr;
-        errCode = listenSock.Accept(clientSock);
-        if (errCode != SOCKET_ERROR) {
-            std::cout << "Accepted client!\n";
+        ec = listenSock.Accept(clientSock);
+        if (ec != SOCKET_ERROR) {
+            std::cout << "\nAccepted client!\n";
             clientSock.GetSockAddress(addr);
             std::cout << "Local client sock address  = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
             clientSock.GetPeerAddress(addr);
             std::cout << "Remote client sock address = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
         }
-        return errCode;
+        return ec;
     }
 
     void Receive() {
+        memset(buffer, 0, BUFFER_SIZE);
         int readBytes = clientSock.Read(buffer, BUFFER_SIZE);
         std::cout << "Received " << readBytes << " bytes: " << buffer << '\n';
     }
@@ -49,7 +54,6 @@ public:
         #endif
         int sentBytes = clientSock.Write(buffer);
         std::cout << "Sent " << sentBytes << " bytes: " << buffer << '\n';
-        memset(buffer, 0, BUFFER_SIZE);
     }
 
     void DisconnectClient() {
@@ -60,14 +64,14 @@ public:
 
 int main(int argc, char* argv[]) {
     uint16_t port = 8080;
+    Server server;
     if (argc > 1) port = std::atoi(argv[1]);
     ssock::WinStartup();
     {
         std::cout << "Will try to start a server at " << port << " port\n";
-        Server server("0.0.0.0", 8080);
-        if (server.GetErrorCode() == SOCKET_ERROR) {
-            std::cout << "Failed to start server!\n";
-            return 1;
+        if (server.BindAndListen("0.0.0.0", port) == SOCKET_ERROR) {
+            LogError("Failed to start a server");
+            return static_cast<errcode_t>(ssock::GetLastError());
         }
         ssock::Address serverAddress; 
         server.GetServerAddress(serverAddress);
@@ -77,7 +81,7 @@ int main(int argc, char* argv[]) {
                 server.Receive();
                 server.Reply();
                 server.DisconnectClient();
-            }
+            } else LogError("Failed to accept client connection");
         }
     }
     ssock::WinStartup();

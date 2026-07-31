@@ -22,9 +22,11 @@
 #else 
     #include <errno.h>
     #include <unordered_map>
+    const errcode_t SOCKET_ERROR = -1;
 #endif
 
 typedef int errcode_t;
+const errcode_t SUCCESS = 0;
 
 namespace ssock {
     // NOTE: 
@@ -34,7 +36,7 @@ namespace ssock {
     //   errors under normal circumstances, therefore they 
     //   are mapped to closest matching error code
     enum class SocketError : errcode_t {
-        Error                = -1,     
+        Error                       = -1,     
         Success                     = 0,      
         InvalidHandle               = 6,      // --- same as EBADF
         NotEnoughMemory             = 8,      // ENOMEM
@@ -47,7 +49,7 @@ namespace ssock {
         InvalidAddress              = 10014,  // EFAULT
         InvalidValue                = 10022,  // EINVAL
         TooManySockets              = 10024,  // EMFILE
-        WouldBlock                  = 10035,  // EWOULDBLOCK
+        WouldBlock                  = 10035,  // EWOULDBLOCK || EAGAIN
         InProgress                  = 10036,  // EINPROGRESS
         AlreadyInProgress           = 10037,  // EALREADY
         NotSocket                   = 10038,  // ENOTSOCK
@@ -103,11 +105,12 @@ namespace ssock {
             {EINPROGRESS,     SocketError::IOPending},                   
             {EINTR,           SocketError::InterruptSignal},             
             {EBADF,           SocketError::BadFileDescriptor},           
-            {EACCES,         SocketError::AccessDenied},                
+            {EACCES,          SocketError::AccessDenied},                
             {EFAULT,          SocketError::InvalidAddress},              
             {EINVAL,          SocketError::InvalidValue},                
             {EMFILE,          SocketError::TooManySockets},              
             {EWOULDBLOCK,     SocketError::WouldBlock},                  
+            {EAGAIN,          SocketError::WouldBlock},                  
             {EINPROGRESS,     SocketError::InProgress},                  
             {EALREADY,        SocketError::AlreadyInProgress},           
             {ENOTSOCK,        SocketError::NotSocket},                   
@@ -149,7 +152,7 @@ namespace ssock {
         };
 
         const std::unordered_map<SocketError, errcode_t> socketErrorToUnixError = {
-            {SocketError::Error,                -1},
+            {SocketError::Error,                      -1},
             {SocketError::Success,                     0},                    
             {SocketError::InvalidHandle,               EBADF},
             {SocketError::NotEnoughMemory,             ENOMEM},
@@ -207,6 +210,7 @@ namespace ssock {
         };
     #endif
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     errcode_t GetLastNativeError() {
         errcode_t errCode;
@@ -233,6 +237,7 @@ namespace ssock {
 
     std::string GetNativeErrorMsg(errcode_t errCode) {
         #ifdef _WIN32 
+            if (errCode < 0) return std::string("Unknown error ") + std::to_string(errCode);
             static char errMsg[256] = {0};
             FormatMessage(
                 FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
