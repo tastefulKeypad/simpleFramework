@@ -64,10 +64,10 @@ public:
 
 int main(int argc, char* argv[]) {
     uint16_t port = 8080;
-    Server server;
     if (argc > 1) port = std::atoi(argv[1]);
     ssock::WinStartup();
     {
+        Server server;
         std::cout << "Will try to start a server at " << port << " port\n";
         if (server.BindAndListen("0.0.0.0", port) == SOCKET_ERROR) {
             LogError("Failed to start a server");

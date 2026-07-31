@@ -12,6 +12,9 @@
 #include <cstring>
 #include <string>
 
+typedef int errcode_t;
+const errcode_t SUCCESS = 0;
+
 #ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
@@ -25,8 +28,6 @@
     const errcode_t SOCKET_ERROR = -1;
 #endif
 
-typedef int errcode_t;
-const errcode_t SUCCESS = 0;
 
 namespace ssock {
     // NOTE: 
