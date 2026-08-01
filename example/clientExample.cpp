@@ -7,7 +7,6 @@ void LogError(std::string msg) {
               << ssock::GetErrorMsg(ssock::GetLastError()) << '\n';
 }
 
-
 class Client {
 private:
     ssock::Socket sock;
@@ -17,17 +16,16 @@ public:
     Client() : sock(ssock::ProtocolType::TCP) {memset(buffer, 0, BUFFER_SIZE);}
     ~Client() {}
 
-    int Connect(ssock::Address serverAddr) {
-        errcode_t ec = sock.Connect(serverAddr);
-        if (ec != SOCKET_ERROR) {
-            ssock::Address addr;
-            std::cout << "Connected to server!\n";
-            sock.GetSockAddress(addr);
-            std::cout << "Local client sock address  = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
-            sock.GetPeerAddress(addr);
-            std::cout << "Remote server sock address = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
-        }
-        return ec;
+    errcode_t Connect(ssock::Address serverAddr) {
+        std::cout << "Will try to connect to " << serverAddr.GetFullAddress() << '\n'; 
+        if (sock.Connect(serverAddr) == SOCKET_ERROR) return SOCKET_ERROR;
+        ssock::Address addr;
+        std::cout << "Connected to server!\n";
+        sock.GetSockAddress(addr);
+        std::cout << "Local client sock address  = " << addr.GetFullAddress() << '\n';
+        sock.GetPeerAddress(addr);
+        std::cout << "Remote server sock address = " << addr.GetFullAddress() << '\n';
+        return SUCCESS;
     }
 
     void Receive() {
@@ -51,7 +49,6 @@ int main(int argc, char* argv[]) {
     ssock::WinStartup();
     {
         Client client;
-        std::cout << "Will try to connect to " << addr << ':' << port << '\n'; 
         if (client.Connect(ssock::Address(addr, port)) == SOCKET_ERROR) {
             LogError("Failed to connect to remote server!");
             return static_cast<errcode_t>(ssock::GetLastError());

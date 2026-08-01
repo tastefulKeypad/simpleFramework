@@ -82,6 +82,7 @@ namespace ssock {
         std::string GetAddress();
         void SetPort(uint16_t);
         uint16_t GetPort();
+        std::string GetFullAddress();
     
         friend class Socket;
     };
@@ -279,4 +280,5 @@ namespace ssock {
     }
     void Address::SetPort(uint16_t port) {m_addr.sin_port = htons(port);}
     uint16_t Address::GetPort() {return ntohs(m_addr.sin_port);}
+    std::string Address::GetFullAddress() {return GetAddress()+":"+std::to_string(GetPort());}
 };

@@ -18,26 +18,30 @@ public:
           clientSock(ssock::ProtocolType::TCP) {}
     ~Server() {}
 
-    errcode_t BindAndListen(std::string addr, uint16_t port) {
-        errcode_t ec = listenSock.Bind(ssock::Address(addr, port));
-        if (ec != SOCKET_ERROR) ec = listenSock.Listen(64);
-        return ec;
+    errcode_t BindAndListen(std::string addrIn, uint16_t port) {
+        std::cout << "Will try to bind a server at " << port << " port\n";
+        if (listenSock.Bind(ssock::Address(addrIn, port)) == SOCKET_ERROR) 
+            return SOCKET_ERROR;
+        if (listenSock.Listen(64) == SOCKET_ERROR) 
+            return SOCKET_ERROR;
+
+        ssock::Address addr; 
+        listenSock.GetSockAddress(addr);
+        std::cout << "Server started listening at address: " << addr.GetFullAddress() << '\n';
+        return SUCCESS;
     }
 
-    errcode_t GetServerAddress(ssock::Address& outAddr) {return listenSock.GetSockAddress(outAddr);}
-
-    int Accept() {
-        errcode_t ec;
+    errcode_t Accept() {
         ssock::Address addr;
-        ec = listenSock.Accept(clientSock);
-        if (ec != SOCKET_ERROR) {
-            std::cout << "\nAccepted client!\n";
-            clientSock.GetSockAddress(addr);
-            std::cout << "Local client sock address  = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
-            clientSock.GetPeerAddress(addr);
-            std::cout << "Remote client sock address = " << addr.GetAddress() << ':' << addr.GetPort() << '\n';
-        }
-        return ec;
+        if (listenSock.Accept(clientSock) == SOCKET_ERROR)
+            return SOCKET_ERROR;
+
+        std::cout << "\nAccepted client!\n";
+        clientSock.GetSockAddress(addr);
+        std::cout << "Local client sock address  = " << addr.GetFullAddress() << '\n';
+        clientSock.GetPeerAddress(addr);
+        std::cout << "Remote client sock address = " << addr.GetFullAddress() << '\n';
+        return SUCCESS;
     }
 
     void Receive() {
@@ -68,14 +72,10 @@ int main(int argc, char* argv[]) {
     ssock::WinStartup();
     {
         Server server;
-        std::cout << "Will try to start a server at " << port << " port\n";
         if (server.BindAndListen("0.0.0.0", port) == SOCKET_ERROR) {
             LogError("Failed to start a server");
             return static_cast<errcode_t>(ssock::GetLastError());
         }
-        ssock::Address serverAddress; 
-        server.GetServerAddress(serverAddress);
-        std::cout << "Started server at address: " << serverAddress.GetAddress() << ':' << serverAddress.GetPort() << '\n';
         while (true) {
             if (server.Accept() != SOCKET_ERROR) {
                 server.Receive();
@@ -84,5 +84,5 @@ int main(int argc, char* argv[]) {
             } else LogError("Failed to accept client connection");
         }
     }
-    ssock::WinStartup();
+    ssock::WinCleanup();
 }

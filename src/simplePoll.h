@@ -2,8 +2,6 @@
 #include "simpleError.h"
 #include <vector>
 #include <array>
-#include <bitset>
-#include <iostream>
 #include <unordered_map>
 
 #ifdef _WIN32
