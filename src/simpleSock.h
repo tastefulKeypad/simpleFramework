@@ -44,7 +44,7 @@ namespace ssock {
         Socket() = delete;
         Socket(ProtocolType);
         ~Socket();
-    
+
         errcode_t Bind(Address);
         errcode_t Listen(unsigned int);
         errcode_t Accept(Socket&);
@@ -58,6 +58,7 @@ namespace ssock {
         bool IsConnected();
         errcode_t  SwitchBlockingState();
         ProtocolType GetProtocolType();
+        SOCKET GetSocket();
     
         int Write(const char*);
         int Write(const char*, Address&);
@@ -174,6 +175,7 @@ namespace ssock {
         return ec;
     }
     ProtocolType Socket::GetProtocolType() {return m_protocol;}
+    SOCKET Socket::GetSocket() {return m_sock;}
     
     int Socket::Write(const char *buf) {
         int sentBytes = send(m_sock, buf, strlen(buf), 0);

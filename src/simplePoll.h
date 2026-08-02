@@ -123,7 +123,7 @@ namespace ssock {
         errcode_t AddMonitor(SOCKET, EventType);
         errcode_t ModifyMonitor(SOCKET, EventType);
         errcode_t DeleteMonitor(SOCKET);
-        int       WaitForReadiness(int);
+        ssize_t   WaitForReadiness(int);
         std::vector<pollfd_et> GetReadyMonitors(size_t);
     };
 
@@ -160,7 +160,7 @@ namespace ssock {
     errcode_t Poll::AddMonitor(SOCKET sockfd, EventType events) {
         errcode_t ec = SUCCESS;
         pollfd monitor = {sockfd, 0, 0};
-        if (MonitorExists(sockfd)) {
+        if (MonitorExists(sockfd) != MONITOR_DOES_NOT_EXIST) {
             ec = SOCKET_ERROR;
             #ifdef _WIN32 
                 WSASetLastError(WSAEBADF);
@@ -205,11 +205,11 @@ namespace ssock {
         m_monitoredSockets.pop_back();
         return ec;
     }
-    int Poll::WaitForReadiness(int timeout) {
+    ssize_t Poll::WaitForReadiness(int timeout) {
         #ifdef _WIN32
-            return WSAPoll((pollfd*) &m_monitoredSockets.front(), m_monitoredSockets.size(), timeout);
+            return WSAPoll(m_monitoredSockets.data(), m_monitoredSockets.size(), timeout);
         #else 
-            return poll((pollfd*) &m_monitoredSockets.front(), m_monitoredSockets.size(), timeout);
+            return poll(m_monitoredSockets.data(), m_monitoredSockets.size(), timeout);
         #endif
     }
     std::vector<pollfd_et> Poll::GetReadyMonitors(size_t monitorAmount) {
