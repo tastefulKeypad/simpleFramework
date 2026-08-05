@@ -14,17 +14,17 @@ void LogError(std::string msg) {
 
 class Server {
 private:
-    ssock::Poll   poll;
-    ssock::Socket listenSock, clientSock;
-    timer::time_point<timer::high_resolution_clock> lastTime,
-                                                    timeSinceStart;
+    ssock::Poll   m_poll;
+    ssock::Socket m_listenSock, m_clientSock;
+    timer::time_point<timer::high_resolution_clock> m_lastTime,
+                                                    m_timeSinceStart;
                                                     
     bool canReply = false, canAccept = true;
     char buffer[BUFFER_SIZE];
 
     void Receive() {
         memset(buffer, 0, BUFFER_SIZE);
-        int readBytes = clientSock.Read(buffer, BUFFER_SIZE);
+        int readBytes = m_clientSock.Read(buffer, BUFFER_SIZE);
         std::cout << "Received " << readBytes << " bytes: " << buffer << '\n';
         canReply = true;
     }
@@ -35,78 +35,78 @@ private:
         #else 
             std::strcat(buffer, " --- UNIX echo server");
         #endif
-        int sentBytes = clientSock.Write(buffer);
+        int sentBytes = m_clientSock.Write(buffer, strlen(buffer));
         std::cout << "Sent " << sentBytes << " bytes: " << buffer << '\n';
         canReply = false;
     }
 
     void DisconnectClient() {
-        poll.DeleteMonitor(clientSock.GetSocket());
-        clientSock.Shutdown(ssock::ShutdownType::BOTH);
-        clientSock.Close();
+        m_poll.DeleteMonitor(m_clientSock.GetSocket());
+        m_clientSock.Shutdown(ssock::ShutdownType::BOTH);
+        m_clientSock.Close();
         canAccept = true;
     }
 
 public:
     Server() 
-        : listenSock(ssock::ProtocolType::TCP), 
-          clientSock(ssock::ProtocolType::TCP),
-          timeSinceStart(timer::high_resolution_clock::now()) {}
+        : m_listenSock(ssock::ProtocolType::TCP), 
+          m_clientSock(ssock::ProtocolType::TCP),
+          m_timeSinceStart(timer::high_resolution_clock::now()) {}
     ~Server() {}
 
     errcode_t BindAndListen(std::string addrIn, uint16_t port) {
         std::cout << "Will try to bind a server at " << port << " port\n";
-        if (listenSock.Bind(ssock::Address(addrIn, port)) == SOCKET_ERROR) 
+        if (m_listenSock.Bind(ssock::Address(addrIn, port)) == SOCKET_ERROR) 
             return SOCKET_ERROR;
-        if (listenSock.Listen(64) == SOCKET_ERROR) 
+        if (m_listenSock.Listen(64) == SOCKET_ERROR) 
             return SOCKET_ERROR;
 
         ssock::Address addr; 
-        listenSock.GetSockAddress(addr);
+        m_listenSock.GetSockAddress(addr);
         std::cout << "Server started listening at address: " << addr.GetFullAddress() << '\n';
-        if (listenSock.IsBlocking()) {
-            if (listenSock.SwitchBlockingState() == SOCKET_ERROR) 
+        if (m_listenSock.IsBlocking()) {
+            if (m_listenSock.SwitchBlockingState() == SOCKET_ERROR) 
                 return SOCKET_ERROR;
         }
-        if (clientSock.IsBlocking()) {
-            if (clientSock.SwitchBlockingState() == SOCKET_ERROR) 
+        if (m_clientSock.IsBlocking()) {
+            if (m_clientSock.SwitchBlockingState() == SOCKET_ERROR) 
                 return SOCKET_ERROR;
         }
         std::cout << "Made sockets non blocking\n";
-        poll.AddMonitor(listenSock.GetSocket(), ssock::EventType::ReadReady |
-                                                ssock::EventType::WriteReady);
+        m_poll.AddMonitor(m_listenSock.GetSocket(), ssock::EventType::ReadReady |
+                                                    ssock::EventType::WriteReady);
         std::cout << "Added listening socket to poll queue\n";
         return SUCCESS;
     }
 
     errcode_t Accept() {
         ssock::Address addr;
-        if (listenSock.Accept(clientSock) == SOCKET_ERROR)
+        if (m_listenSock.Accept(m_clientSock) == SOCKET_ERROR)
             return SOCKET_ERROR;
 
         std::cout << "\nAccepted client!\n";
-        clientSock.GetSockAddress(addr);
+        m_clientSock.GetSockAddress(addr);
         std::cout << "Local client sock address  = " << addr.GetFullAddress() << '\n';
-        clientSock.GetPeerAddress(addr);
+        m_clientSock.GetPeerAddress(addr);
         std::cout << "Remote client sock address = " << addr.GetFullAddress() << '\n';
 
-        poll.AddMonitor(clientSock.GetSocket(), ssock::EventType::ReadReady |
-                                                ssock::EventType::WriteReady);
+        m_poll.AddMonitor(m_clientSock.GetSocket(), ssock::EventType::ReadReady |
+                                                    ssock::EventType::WriteReady);
         std::cout << "Added client to poll queue\n\n";
         canAccept = false;
         return SUCCESS;
     }
 
     void PollSockets() {
-        lastTime = timer::high_resolution_clock::now();
-        ssize_t readyMonitorsCount = poll.WaitForReadiness(0);
+        m_lastTime = timer::high_resolution_clock::now();
+        ssize_t readyMonitorsCount = m_poll.WaitForReadiness(0);
         std::cout << "Ready monitors count = " << readyMonitorsCount << '\n';
 
         std::vector<ssock::pollfd_et> readyMonitors = 
-            poll.GetReadyMonitors(readyMonitorsCount);
+            m_poll.GetReadyMonitors(readyMonitorsCount);
 
         for (const auto &monitor : readyMonitors) {
-            if (monitor.fd == listenSock.GetSocket()) {
+            if (monitor.fd == m_listenSock.GetSocket()) {
                 if (canAccept)
                     if (Accept() == SOCKET_ERROR)
                         LogError("Failed to accept connection");
@@ -125,10 +125,10 @@ public:
 
     void SleepUntilNextIteration() {
         auto curTime = timer::high_resolution_clock::now();
-        auto deltaTime = curTime - lastTime;
+        auto deltaTime = curTime - m_lastTime;
         auto sleepTime = timer::milliseconds(SERVER_LOOP_TIME) - 
                          timer::duration_cast<timer::milliseconds>(deltaTime);
-        auto deltaTimeSinceStart = curTime - timeSinceStart;
+        auto deltaTimeSinceStart = curTime - m_timeSinceStart;
         
         std::cout << "Server uptime: " 
                   << timer::duration_cast<timer::milliseconds>(deltaTimeSinceStart).count() 

@@ -9,32 +9,32 @@ void LogError(std::string msg) {
 
 class Client {
 private:
-    ssock::Socket sock;
-    char buffer[BUFFER_SIZE];
+    ssock::Socket m_sock;
+    char m_buffer[BUFFER_SIZE];
 
 public:
-    Client() : sock(ssock::ProtocolType::TCP) {memset(buffer, 0, BUFFER_SIZE);}
+    Client() : m_sock(ssock::ProtocolType::TCP) {memset(m_buffer, 0, BUFFER_SIZE);}
     ~Client() {}
 
     errcode_t Connect(ssock::Address serverAddr) {
         std::cout << "Will try to connect to " << serverAddr.GetFullAddress() << '\n'; 
-        if (sock.Connect(serverAddr) == SOCKET_ERROR) return SOCKET_ERROR;
+        if (m_sock.Connect(serverAddr) == SOCKET_ERROR) return SOCKET_ERROR;
         ssock::Address addr;
         std::cout << "Connected to server!\n";
-        sock.GetSockAddress(addr);
+        m_sock.GetSockAddress(addr);
         std::cout << "Local client sock address  = " << addr.GetFullAddress() << '\n';
-        sock.GetPeerAddress(addr);
+        m_sock.GetPeerAddress(addr);
         std::cout << "Remote server sock address = " << addr.GetFullAddress() << '\n';
         return SUCCESS;
     }
 
     void Receive() {
-        int readBytes = sock.Read(buffer, BUFFER_SIZE);
-        std::cout << "Received " << readBytes << " bytes: " << buffer << '\n';
+        int readBytes = m_sock.Read(m_buffer, BUFFER_SIZE);
+        std::cout << "Received " << readBytes << " bytes: " << m_buffer << '\n';
     }
 
     void Send(std::string word) {
-        int sentBytes = sock.Write(word.c_str());
+        int sentBytes = m_sock.Write(word.c_str(), word.size());
         std::cout << "Sent " << sentBytes << " bytes: " << word.substr(0, sentBytes) << '\n';
     }
 };

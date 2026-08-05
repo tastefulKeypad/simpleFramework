@@ -60,10 +60,10 @@ namespace ssock {
         ProtocolType GetProtocolType();
         SOCKET GetSocket();
     
-        int Write(const char*);
-        int Write(const char*, Address&);
-        int Read(char*, int);
-        int Read(char*, int, Address&);
+        int Write(const char*, size_t);
+        int Write(const char*, size_t, Address&);
+        int Read(char*, size_t);
+        int Read(char*, size_t, Address&);
     
         errcode_t Shutdown(ShutdownType);
         errcode_t Close();
@@ -177,11 +177,11 @@ namespace ssock {
     ProtocolType Socket::GetProtocolType() {return m_protocol;}
     SOCKET Socket::GetSocket() {return m_sock;}
     
-    int Socket::Write(const char *buf) {
-        int sentBytes = send(m_sock, buf, strlen(buf), 0);
+    int Socket::Write(const char *buf, size_t bufSize) {
+        int sentBytes = send(m_sock, buf, bufSize, 0);
         return sentBytes;
     }
-    int Socket::Write(const char *buf, Address &remoteAddr) {
+    int Socket::Write(const char *buf, size_t bufSize, Address &remoteAddr) {
         int sentBytes;
         if (m_protocol != ProtocolType::UDP) {
             sentBytes = SOCKET_ERROR;
@@ -191,16 +191,16 @@ namespace ssock {
                 errno = EOPNOTSUPP;
             #endif
             SSOCK_LOG("SOCKET_ERROR", "Can't send packets to specific remote address in TCP");
-        } else sentBytes = sendto(m_sock, buf, strlen(buf), 
+        } else sentBytes = sendto(m_sock, buf, bufSize, 
                                   0, (sockaddr*) &remoteAddr.m_addr, 
                                   remoteAddr.m_addrlen);
         return sentBytes;
     }
-    int Socket::Read(char *buf, int bufSize) {
+    int Socket::Read(char *buf, size_t bufSize) {
         int receivedBytes = recv(m_sock, buf, bufSize, 0);
         return receivedBytes;
     }
-    int Socket::Read(char *buf, int bufSize, Address &remoteAddr) {
+    int Socket::Read(char *buf, size_t bufSize, Address &remoteAddr) {
         int receivedBytes;
         if (m_protocol != ProtocolType::UDP) {
             receivedBytes = SOCKET_ERROR;

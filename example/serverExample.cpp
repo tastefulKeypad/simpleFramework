@@ -9,60 +9,60 @@ void LogError(std::string msg) {
 
 class Server {
 private:
-    ssock::Socket listenSock, clientSock;
-    char buffer[BUFFER_SIZE];
+    ssock::Socket m_listenSock, m_clientSock;
+    char m_buffer[BUFFER_SIZE];
 
 public:
     Server() 
-        : listenSock(ssock::ProtocolType::TCP), 
-          clientSock(ssock::ProtocolType::TCP) {}
+        : m_listenSock(ssock::ProtocolType::TCP), 
+          m_clientSock(ssock::ProtocolType::TCP) {}
     ~Server() {}
 
     errcode_t BindAndListen(std::string addrIn, uint16_t port) {
         std::cout << "Will try to bind a server at " << port << " port\n";
-        if (listenSock.Bind(ssock::Address(addrIn, port)) == SOCKET_ERROR) 
+        if (m_listenSock.Bind(ssock::Address(addrIn, port)) == SOCKET_ERROR) 
             return SOCKET_ERROR;
-        if (listenSock.Listen(64) == SOCKET_ERROR) 
+        if (m_listenSock.Listen(64) == SOCKET_ERROR) 
             return SOCKET_ERROR;
 
         ssock::Address addr; 
-        listenSock.GetSockAddress(addr);
+        m_listenSock.GetSockAddress(addr);
         std::cout << "Server started listening at address: " << addr.GetFullAddress() << '\n';
         return SUCCESS;
     }
 
     errcode_t Accept() {
         ssock::Address addr;
-        if (listenSock.Accept(clientSock) == SOCKET_ERROR)
+        if (m_listenSock.Accept(m_clientSock) == SOCKET_ERROR)
             return SOCKET_ERROR;
 
         std::cout << "\nAccepted client!\n";
-        clientSock.GetSockAddress(addr);
+        m_clientSock.GetSockAddress(addr);
         std::cout << "Local client sock address  = " << addr.GetFullAddress() << '\n';
-        clientSock.GetPeerAddress(addr);
+        m_clientSock.GetPeerAddress(addr);
         std::cout << "Remote client sock address = " << addr.GetFullAddress() << '\n';
         return SUCCESS;
     }
 
     void Receive() {
-        memset(buffer, 0, BUFFER_SIZE);
-        int readBytes = clientSock.Read(buffer, BUFFER_SIZE);
-        std::cout << "Received " << readBytes << " bytes: " << buffer << '\n';
+        memset(m_buffer, 0, BUFFER_SIZE);
+        int readBytes = m_clientSock.Read(m_buffer, BUFFER_SIZE);
+        std::cout << "Received " << readBytes << " bytes: " << m_buffer << '\n';
     }
 
     void Reply() {
         #ifdef _WIN32
-            std::strcat(buffer, " --- WINDOWS echo server");
+            std::strcat(m_buffer, " --- WINDOWS echo server");
         #else 
-            std::strcat(buffer, " --- UNIX echo server");
+            std::strcat(m_buffer, " --- UNIX echo server");
         #endif
-        int sentBytes = clientSock.Write(buffer);
-        std::cout << "Sent " << sentBytes << " bytes: " << buffer << '\n';
+        int sentBytes = m_clientSock.Write(m_buffer, strlen(m_buffer));
+        std::cout << "Sent " << sentBytes << " bytes: " << m_buffer << '\n';
     }
 
     void DisconnectClient() {
-        clientSock.Shutdown(ssock::ShutdownType::BOTH);
-        clientSock.Close();
+        m_clientSock.Shutdown(ssock::ShutdownType::BOTH);
+        m_clientSock.Close();
     }
 };
 
