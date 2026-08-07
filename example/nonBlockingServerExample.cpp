@@ -1,4 +1,5 @@
 #include "simpleSock.h"
+#include <csignal>
 #include <thread>
 #include <chrono>
 
@@ -81,9 +82,11 @@ public:
 
     errcode_t Accept() {
         ssock::Address addr;
-        if (m_listenSock.Accept(m_clientSock) == SOCKET_ERROR)
+        ssock::Socket acceptedSock(m_listenSock.Accept());
+        if (acceptedSock.GetSocket() == INVALID_SOCKET)
             return SOCKET_ERROR;
 
+        m_clientSock = std::move(acceptedSock);
         std::cout << "\nAccepted client!\n";
         m_clientSock.GetSockAddress(addr);
         std::cout << "Local client sock address  = " << addr.GetFullAddress() << '\n';
@@ -102,21 +105,25 @@ public:
         ssize_t readyMonitorsCount = m_poll.WaitForReadiness(0);
         std::cout << "Ready monitors count = " << readyMonitorsCount << '\n';
 
-        std::vector<ssock::pollfd_et> readyMonitors = 
+        std::vector<ssock::pollfde_t> readyMonitors = 
             m_poll.GetReadyMonitors(readyMonitorsCount);
 
         for (const auto &monitor : readyMonitors) {
-            if (monitor.fd == m_listenSock.GetSocket()) {
+            auto socket = monitor.fd;
+            auto pendingEvent = monitor.revents;
+            if (socket == m_listenSock.GetSocket()) {
                 if (canAccept)
                     if (Accept() == SOCKET_ERROR)
                         LogError("Failed to accept connection");
-            } else if (!(monitor.revents & ssock::EventType::ConnectionClosed)) {
-                if (monitor.revents & ssock::EventType::ReadReady) Receive();
-                if (monitor.revents & ssock::EventType::WriteReady) {
-                    if (canReply) {
-                        Reply();
-                        DisconnectClient();
-                    }
+            } else if ((pendingEvent & ssock::EventType::ConnectionClosed) ||
+                       (pendingEvent & ssock::EventType::InvalidSocket) ||
+                       (pendingEvent & ssock::EventType::ErrorOccured))
+                DisconnectClient();
+            else if (pendingEvent & ssock::EventType::ReadReady) Receive();
+            else if (pendingEvent & ssock::EventType::WriteReady) {
+                if (canReply) {
+                    Reply();
+                    DisconnectClient();
                 }
             }
         }
@@ -137,7 +144,11 @@ public:
     }
 };
 
+volatile sig_atomic_t g_isRunning = 1;
+void SIGINTCallback(int sig) {g_isRunning = 0;}
+
 int main(int argc, char* argv[]) {
+    std::signal(SIGINT, SIGINTCallback);
     uint16_t port = 8080;
     if (argc > 1) port = std::atoi(argv[1]);
     ssock::WinStartup();
@@ -147,10 +158,11 @@ int main(int argc, char* argv[]) {
             LogError("Failed to start a server");
             return static_cast<errcode_t>(ssock::GetLastError());
         }
-        while (true) {
+        while (g_isRunning) {
             server.PollSockets();
             server.SleepUntilNextIteration();
         }
     }
     ssock::WinCleanup();
+    std::cout << "Server shutdown\n";
 }

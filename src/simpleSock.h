@@ -43,12 +43,17 @@ namespace ssock {
     public:
         Socket() = delete;
         Socket(ProtocolType);
+        Socket(SOCKET);
+        Socket(Socket&&) noexcept;
         ~Socket();
+        Socket& operator=(Socket&&) noexcept;
+        Socket(const Socket&) = delete;
+        Socket& operator=(const Socket&) = delete;
 
         errcode_t Bind(Address);
         errcode_t Listen(unsigned int);
-        errcode_t Accept(Socket&);
-        errcode_t Accept(Socket&, Address&);
+        SOCKET Accept();
+        SOCKET Accept(Address&);
         errcode_t Connect(Address);
     
         errcode_t GetSockAddress(Address&);
@@ -65,6 +70,7 @@ namespace ssock {
         int Read(char*, size_t);
         int Read(char*, size_t, Address&);
     
+        //void      DangerousInvalidateSocket();
         errcode_t Shutdown(ShutdownType);
         errcode_t Close();
     };
@@ -125,30 +131,46 @@ namespace ssock {
             break;
         }
     }
+    Socket::Socket(SOCKET acceptedSock) {
+        int proto = 0;
+        socklen_t protoSize = sizeof(proto);
+        m_isBlocking = true;
+        m_sock = acceptedSock;
+        getsockopt(m_sock, SOL_SOCKET, SO_TYPE, (char*) &proto, &protoSize);
+        if (proto == SOCK_STREAM) m_protocol = ProtocolType::TCP;
+        else m_protocol = ProtocolType::UDP;
+    }
+    Socket::Socket(Socket &&moveSock) noexcept {
+        m_isBlocking = moveSock.m_isBlocking;
+        m_protocol = moveSock.m_protocol;
+        m_sock = moveSock.m_sock;
+        moveSock.m_sock = INVALID_SOCKET;
+    }
     Socket::~Socket() {
         Shutdown(ShutdownType::BOTH);
-        //if (state == SOCKET_ERROR) SSOCK_LOG("SOCKET_ERROR", strerror(errno));
         Close();
-        //if (state == SOCKET_ERROR) SSOCK_LOG("SOCKET_ERROR", strerror(errno));
+    }
+    Socket& Socket::operator=(Socket&& rval) noexcept {
+        if (this != &rval) {
+            m_isBlocking = rval.m_isBlocking;
+            m_protocol = rval.m_protocol;
+            m_sock = rval.m_sock;
+            rval.m_sock = INVALID_SOCKET;
+        }
+        return *this;
     }
     
     errcode_t Socket::Bind(Address address) {return bind(m_sock, (sockaddr*) &address.m_addr, address.m_addrlen);}
     errcode_t Socket::Listen(unsigned int backlog) {return listen(m_sock, backlog);}
-    errcode_t Socket::Accept(Socket &peerSock) {
-        errcode_t ec = SOCKET_ERROR;
-        if (peerSock.GetProtocolType() != m_protocol) return ec;
-        peerSock.m_sock = accept(m_sock, nullptr, nullptr);
-        if (peerSock.m_sock != INVALID_SOCKET) ec = SUCCESS;
-        return ec;
+    SOCKET Socket::Accept() {
+        SOCKET acceptedSock = accept(m_sock, nullptr, nullptr);
+        return acceptedSock;
     }
-    errcode_t Socket::Accept(Socket &peerSock, Address &peerAddress) {
-        errcode_t ec = SOCKET_ERROR;
-        if (peerSock.GetProtocolType() != m_protocol) return ec;
-        peerSock.m_sock = accept(m_sock, 
-                                 (sockaddr*) &peerAddress.m_addr,
-                                 &peerAddress.m_addrlen);
-        if (peerSock.m_sock != INVALID_SOCKET) ec = SUCCESS;
-        return ec;
+    SOCKET Socket::Accept(Address &peerAddress) {
+        SOCKET acceptedSock = accept(m_sock, 
+                                     (sockaddr*) &peerAddress.m_addr,
+                                     &peerAddress.m_addrlen);
+        return acceptedSock;
     }
     errcode_t Socket::Connect(Address peerAddress) {return connect(m_sock, (sockaddr*) &peerAddress.m_addr, peerAddress.m_addrlen);}
     
@@ -178,7 +200,11 @@ namespace ssock {
     SOCKET Socket::GetSocket() {return m_sock;}
     
     int Socket::Write(const char *buf, size_t bufSize) {
-        int sentBytes = send(m_sock, buf, bufSize, 0);
+        #ifdef _WIN32
+            int sentBytes = send(m_sock, buf, bufSize, 0);
+        #else 
+            int sentBytes = send(m_sock, buf, bufSize, MSG_NOSIGNAL);
+        #endif
         return sentBytes;
     }
     int Socket::Write(const char *buf, size_t bufSize, Address &remoteAddr) {
@@ -191,9 +217,18 @@ namespace ssock {
                 errno = EOPNOTSUPP;
             #endif
             SSOCK_LOG("SOCKET_ERROR", "Can't send packets to specific remote address in TCP");
-        } else sentBytes = sendto(m_sock, buf, bufSize, 
-                                  0, (sockaddr*) &remoteAddr.m_addr, 
-                                  remoteAddr.m_addrlen);
+        } else {
+        #ifdef _WIN32
+            sentBytes = sendto(m_sock, buf, bufSize, 
+                               0, (sockaddr*) &remoteAddr.m_addr, 
+                               remoteAddr.m_addrlen);
+        #else 
+            sentBytes = sendto(m_sock, buf, bufSize, 
+                               MSG_NOSIGNAL, 
+                               (sockaddr*) &remoteAddr.m_addr, 
+                               remoteAddr.m_addrlen);
+        #endif
+        }
         return sentBytes;
     }
     int Socket::Read(char *buf, size_t bufSize) {
@@ -217,6 +252,17 @@ namespace ssock {
                                  &remoteAddr.m_addrlen);
         return receivedBytes;
     }
+
+    /*
+    // !DANGEROUS! - invalidates underlying file descriptor
+    //
+    // Might be of use when working with temporary sockets
+    //   that you move somewhere else and you want to avoid
+    //   destructor closing same fd twice.
+    // Obviously, you should not try to call any methods
+    //   of invalidated socket
+    void Socket::DangerousInvalidateSocket() {m_sock = -1;}
+    */
     
     errcode_t Socket::Shutdown(ShutdownType shutdownType) {
         errcode_t ec;

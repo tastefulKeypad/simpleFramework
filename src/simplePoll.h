@@ -52,7 +52,7 @@ namespace ssock {
         return bool(static_cast<EVENT>(lhs) & static_cast<EVENT>(rhs));
     }
 
-    struct pollfd_et {
+    struct pollfde_t {
         SOCKET fd;          /* socket file descriptor*/
         EventType events;   /* requested events */
         EventType revents;  /* returned events */
@@ -124,7 +124,7 @@ namespace ssock {
         errcode_t ModifyMonitor(SOCKET, EventType);
         errcode_t DeleteMonitor(SOCKET);
         ssize_t   WaitForReadiness(int);
-        std::vector<pollfd_et> GetReadyMonitors(size_t);
+        std::vector<pollfde_t> GetReadyMonitors(size_t);
     };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -212,9 +212,9 @@ namespace ssock {
             return poll(m_monitoredSockets.data(), m_monitoredSockets.size(), timeout);
         #endif
     }
-    std::vector<pollfd_et> Poll::GetReadyMonitors(size_t monitorAmount) {
-        std::vector<pollfd_et> readyMonitors;
-        pollfd_et temp;
+    std::vector<pollfde_t> Poll::GetReadyMonitors(size_t monitorAmount) {
+        std::vector<pollfde_t> readyMonitors;
+        pollfde_t temp;
         readyMonitors.reserve(monitorAmount);
         for (size_t id = 0; id != m_monitoredSockets.size() && monitorAmount; ++id) {
             if (m_monitoredSockets[id].revents != 0) {

@@ -33,8 +33,10 @@ public:
 
     errcode_t Accept() {
         ssock::Address addr;
-        if (m_listenSock.Accept(m_clientSock) == SOCKET_ERROR)
+        ssock::Socket acceptedSock(m_listenSock.Accept());
+        if (acceptedSock.GetSocket() == INVALID_SOCKET)
             return SOCKET_ERROR;
+        m_clientSock = std::move(acceptedSock);
 
         std::cout << "\nAccepted client!\n";
         m_clientSock.GetSockAddress(addr);
